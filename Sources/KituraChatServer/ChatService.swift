@@ -21,8 +21,18 @@ import Foundation
 
 import KituraWebSocket
 
+import ConversationV1
+
+let username = "f4a41bb7-55de-4cf0-8f62-241fcc9437e9"
+let password = "4KVOiGQKmpLa"
+let version = "2017-03-06" // use today's date for the most recent version
+let conversation = Conversation(username: username, password: password, version: version)
+let workspaceID = "6371a8bb-c167-4ff7-9ec1-c61e4d1be863"
+
+let failure = { (error: Error) in print("Error with \(error)") }
+
 class ChatService: WebSocketService {
-    
+
     private let connectionsLock = DispatchSemaphore(value: 1)
     
     private var connections = [String: (String, WebSocketConnection)]()
@@ -36,6 +46,17 @@ class ChatService: WebSocketService {
         case startedTyping = "T"
     }
     
+    var context: Context? // save context to continue conversation
+
+    public init() {
+
+         conversation.message(withWorkspace: workspaceID, failure: failure) { response in
+                print(response.output.text)
+                self.context = response.context
+            }
+
+    }
+
     /// Called when a WebSocket client connects to the server and is connected to a specific
     /// `WebSocketService`.
     ///
@@ -112,7 +133,59 @@ class ChatService: WebSocketService {
         }
     }
     
+
+    private func tellWatson(message: String) {
+        
+        let components = message.components(separatedBy: ":")
+        
+        guard components.count == 3 else {
+            return
+        }
+        
+        let question = components[2]
+        
+        print("Asking Watson: \(question)")
+
+        let request = MessageRequest(text: question, context: context)
+        conversation.message(withWorkspace: workspaceID, request: request, failure: failure) {
+            response in
+            
+            print(response.output.text)
+            
+            print("Entities are: \(response.entities)")
+            
+            if response.entities[0].entity == "topping" {
+                print(response.entities[0].value)
+            }
+
+            
+            if response.output.text.count > 0 {
+
+                let text = response.output.text[0]
+
+                print("Sending client " + text)
+                
+                self.lockConnectionsLock()
+                
+                for (_, (_, connection)) in self.connections {
+                    connection.send(message: "M:watson:" + text)
+                }
+
+                self.unlockConnectionsLock()
+
+            }
+                    
+            
+            self.context = response.context
+            
+        }
+
+    }
+
     private func echo(message: String) {
+
+        tellWatson(message: message)
+
         lockConnectionsLock()
         for (_, (_, connection)) in connections {
             connection.send(message: message)
