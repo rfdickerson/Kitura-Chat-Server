@@ -64,6 +64,14 @@ class ChatService: WebSocketService {
     ///                    connection to this `WebSocketService`
     public func connected(connection: WebSocketConnection) {
         // Ignored
+
+        print("New user just connected")
+        self.lockConnectionsLock()
+                
+        connection.send(message: "\(MessageType.connected.rawValue):Watson")
+    
+        self.unlockConnectionsLock()
+
     }
     
     /// Called when a WebSocket client disconnects from the server.
@@ -153,12 +161,7 @@ class ChatService: WebSocketService {
             print(response.output.text)
             
             print("Entities are: \(response.entities)")
-            
-            if response.entities[0].entity == "topping" {
-                print(response.entities[0].value)
-            }
-
-            
+                
             if response.output.text.count > 0 {
 
                 let text = response.output.text[0]
@@ -168,7 +171,7 @@ class ChatService: WebSocketService {
                 self.lockConnectionsLock()
                 
                 for (_, (_, connection)) in self.connections {
-                    connection.send(message: "M:watson:" + text)
+                    connection.send(message: "\(MessageType.sentMessage.rawValue):Watson:" + text)
                 }
 
                 self.unlockConnectionsLock()
