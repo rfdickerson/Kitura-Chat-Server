@@ -134,6 +134,7 @@ class ChatService: WebSocketService {
             connections[from.id] = (displayName, from)
             unlockConnectionsLock()
             
+            tellWatson(message: message)
             echo(message: message)
         }
         else {
@@ -187,7 +188,7 @@ class ChatService: WebSocketService {
 
     private func echo(message: String) {
 
-        tellWatson(message: message)
+        
 
         lockConnectionsLock()
         for (_, (_, connection)) in connections {
